@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <time.h>
 
+
 //5 threads
 // Main, Timer, IO_Key, IO_Scr, IO_Mdm
 #define NUM_THREADS 5
@@ -87,6 +88,7 @@ struct PCBNode* createPCBNode(int theId, int theQuanta) {
 void destroyPCBNode(struct PCBNode* pcbNode){
     printf("Destroying PCB %d\n", pcbNode->id);
     free(pcbNode);
+    printf("PCBNode destroyed'n");
 }
 
 //Typedef of the Queue
@@ -106,6 +108,7 @@ struct Queue createQueue(){
     queue.tail = NULL;
     return queue;
 }
+
 
 //method definitions
 
@@ -164,56 +167,4 @@ struct PCBNode* dequeueAndCheckTermination(Queue *queue){
 	return node;
 }
 
-//Typedef of an AllQueues Struct
-typedef struct AllQueues {
-	Queue* ReadyQueue;
-	Queue* MessageQueue;
-	Queue* IO_1Queue;
-    Queue* IO_2Queue;
-	Queue* IO_3Queue;
-} AllQueues;
-
-//create an AllQueues
-AllQueues* createAllQueues(){
-
-	//counter for processes
-	int Proc_ID = 1;
-	//counter for loops
-	int i, k;
-	int s = 0;
-	//int for random number generation
-	//srand(time(0));
-	int r;
-	int r2;
-
-	//Create a Ready Queue and populate it with apx 30 processes
-    Queue ReadyQueue = createQueue();
-    r = ((rand() % 10) + 25);
-    for (i = 0; i < r; i ++){
-        //random number of quanta that the process will consume
-        r2 = ((rand() % 50) + 10);
-        PCBNode* pcb = createPCBNode(Proc_ID, r2);
-        enqueue(pcb, &ReadyQueue);
-        Proc_ID++;
-    }
-    
-    //create an Empty message queue
-    Queue MessageQueue = createQueue();
-    
-    //create 3 empty IOQueues
-    Queue IO1Queue = createQueue();
-    Queue IO2Queue = createQueue();
-    Queue IO3Queue = createQueue();
-	
-	PCBNode* pcb = (PCBNode*) malloc(sizeof(PCBNode));
-	AllQueues* allQ = (AllQueues*) malloc(sizeof(AllQueues));
-	allQ->ReadyQueue = &ReadyQueue;
-	allQ->MessageQueue = &MessageQueue;
-	allQ->IO_1Queue = &IO1Queue;
-	allQ->IO_2Queue = &IO2Queue;
-	allQ->IO_3Queue = &IO3Queue;
-	printf("ReadyQueue Size = %d", allQ->ReadyQueue->size);
-	scanf("%d", &r2);
-	return allQ;
-}
 
