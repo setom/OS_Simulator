@@ -88,7 +88,6 @@ struct PCBNode* createPCBNode(int theId, int theQuanta) {
 void destroyPCBNode(struct PCBNode* pcbNode){
     printf("Destroying PCB %d\n", pcbNode->id);
     free(pcbNode);
-    printf("PCBNode destroyed'n");
 }
 
 //Typedef of the Queue
