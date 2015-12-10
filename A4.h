@@ -6,8 +6,8 @@
 
 
 //5 threads
-// Main, Timer, IO_Key, IO_Scr, IO_Mdm
-#define NUM_THREADS 5
+// Main, Timer, IO_Key, IO_Scr, IO_Mdm, Deadlock checker
+#define NUM_THREADS 6
 
 #define	NODE_ARRAY_SIZE 4
 
@@ -86,7 +86,7 @@ struct PCBNode* createPCBNode(int theId, int theQuanta) {
 
 //destroy a PCBNode
 void destroyPCBNode(struct PCBNode* pcbNode){
-    printf("Destroying PCB %d\n", pcbNode->id);
+    //printf("Destroying PCB %d\n", pcbNode->id);
     free(pcbNode);
 }
 
