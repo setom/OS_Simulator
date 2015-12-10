@@ -166,15 +166,15 @@ struct PCBNode* dequeueAndCheckTermination(Queue *queue){
 
 //Typedef of an AllQueues Struct
 typedef struct AllQueues {
-	struct Queue* ReadyQueue;
-	struct Queue* MessageQueue;
-	struct Queue* IO_1Queue;
-	struct Queue* IO_2Queue;
-	struct Queue* IO_3Queue;
+	Queue* ReadyQueue;
+	Queue* MessageQueue;
+	Queue* IO_1Queue;
+    Queue* IO_2Queue;
+	Queue* IO_3Queue;
 } AllQueues;
 
 //create an AllQueues
-struct AllQueues* createAllQueues(){
+AllQueues* createAllQueues(){
 
 	//counter for processes
 	int Proc_ID = 1;
