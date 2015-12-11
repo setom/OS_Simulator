@@ -24,12 +24,17 @@ pthread_mutex_t IO_KeyLock;
 pthread_mutex_t IO_ScrLock;
 pthread_mutex_t IO_MdmLock;
 
+//mutex for ReadyQueue
+pthread_mutex_t ReadyQLock;
+
 //Thread Loops
 void *mainThread(){
 	while(1){
 		while(ReadyQueue.size > 0 || IO_KeyQueue.size > 0 || IO_ScrQueue.size > 0 || IO_MdmQueue.size > 0){
 			totalCycles++;
+			pthread_mutex_lock(&ReadyQLock);
 			PCBNode* curNode = dequeueAndCheckTermination(&ReadyQueue);
+			pthread_mutex_unlock(&ReadyQLock);
 			//if it returned a null node, it was terminated, start again
 			if (curNode == NULL){
 				continue;
@@ -87,7 +92,9 @@ void *mainThread(){
 				if((Msg & 0x01) == 0x01){
 					//printf("TIMER Interrupt\n");
 					if(curNode != NULL){
+						pthread_mutex_lock(&ReadyQLock);
 						enqueue(curNode, &ReadyQueue);
+						pthread_mutex_unlock(&ReadyQLock);
 					}
 					Msg &= 0xFE;
 					break;
@@ -124,9 +131,12 @@ void *IO_KeyThread(){
 		MsgStatus |= 0x02;
 		pthread_mutex_unlock(&MsgStatusLock);
 		pthread_mutex_lock(&IO_KeyLock);
-		printf("IO_Key Consumer! IO_Key value: %d\n", IO_Key);
+		//usleep(1000);
+		//printf("IO_Key Consumer! IO_Key value: %d\n", IO_Key);
 		if(IO_KeyQueue.size > 0){
+			pthread_mutex_lock(&ReadyQLock);
 			enqueue(dequeue(&IO_KeyQueue), &ReadyQueue);
+			pthread_mutex_unlock(&ReadyQLock);
 		}
 		pthread_mutex_unlock(&IO_KeyLock);
 		usleep(r);
@@ -140,9 +150,12 @@ void *IO_ScrThread(){
 		MsgStatus |= 0x04;
 		pthread_mutex_unlock(&MsgStatusLock);
 		pthread_mutex_lock(&IO_ScrLock);
-		printf("IO_Scr Consumer! IO_Scr value: %d\n", IO_Scr);
+		//usleep(1000);
+		//printf("IO_Scr Consumer! IO_Scr value: %d\n", IO_Scr);
 		if(IO_ScrQueue.size > 0){
+			pthread_mutex_lock(&ReadyQLock);
 			enqueue(dequeue(&IO_ScrQueue), &ReadyQueue);
+			pthread_mutex_unlock(&ReadyQLock);
 		}
 		pthread_mutex_unlock(&IO_ScrLock);
 		usleep(r);
@@ -156,9 +169,12 @@ void *IO_MdmThread(){
 		MsgStatus |= 0x08;
 		pthread_mutex_unlock(&MsgStatusLock);
 		pthread_mutex_lock(&IO_MdmLock);
-		printf("IO_Mdm Consumer! IO_Mdm value: %d\n", IO_Mdm);
+		//usleep(1000);
+		//printf("IO_Mdm Consumer! IO_Mdm value: %d\n", IO_Mdm);
 		if(IO_MdmQueue.size > 0){
+			pthread_mutex_lock(&ReadyQLock);
 			enqueue(dequeue(&IO_MdmQueue), &ReadyQueue);
+			pthread_mutex_unlock(&ReadyQLock);
 		}
 		pthread_mutex_unlock(&IO_MdmLock);
 		usleep(r);
@@ -196,6 +212,10 @@ int main(int argc, char * argv[]){
     
     //initialize the mutex
 	pthread_mutex_init(&MsgStatusLock, NULL);
+	pthread_mutex_init(&IO_KeyLock, NULL);
+	pthread_mutex_init(&IO_ScrLock, NULL);
+	pthread_mutex_init(&IO_MdmLock, NULL);
+	pthread_mutex_init(&ReadyQLock, NULL);
 
 	//create NUM_THREADS number of threads
 	pthread_t thread[NUM_THREADS];
