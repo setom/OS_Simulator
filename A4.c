@@ -4,6 +4,9 @@
 
 //global variables for Queue
 Queue ReadyQueue;
+Queue IO_KeyQueue;
+Queue IO_ScrQueue;
+Queue IO_MdmQueue;
 int MsgStatus;
 
 //global variables that will be incremented by IO functions
@@ -12,6 +15,7 @@ int IO_Scr;
 int IO_Mdm;
 int Proc_ID;
 int Deadlock;
+int totalCycles;
 
 //the pthread lock for the MsgStatus
 pthread_mutex_t MsgStatusLock;
@@ -23,7 +27,8 @@ pthread_mutex_t IO_MdmLock;
 //Thread Loops
 void *mainThread(){
 	while(1){
-		while(ReadyQueue.size > 0){
+		while(ReadyQueue.size > 0 || IO_KeyQueue.size > 0 || IO_ScrQueue.size > 0 || IO_MdmQueue.size > 0){
+			totalCycles++;
 			PCBNode* curNode = dequeueAndCheckTermination(&ReadyQueue);
 			//if it returned a null node, it was terminated, start again
 			if (curNode == NULL){
@@ -44,11 +49,12 @@ void *mainThread(){
 					if(curNode->id % 2 == 0){
 						pthread_mutex_lock(&IO_KeyLock);
 						IO_Key++;
+						if(curNode != NULL){
+							enqueue(curNode, &IO_KeyQueue);
+							curNode = NULL;
+						}
 						pthread_mutex_unlock(&IO_KeyLock);
-					} else {
-						pthread_mutex_lock(&IO_KeyLock);
-						printf("IO_Key Consumer! IO_Key value: %d\n", IO_Key);
-						pthread_mutex_unlock(&IO_KeyLock);
+						break;
 					}
 					Msg &= 0xFD;
 				} 
@@ -56,11 +62,12 @@ void *mainThread(){
 					if(curNode->id % 2 == 0){
 						pthread_mutex_lock(&IO_ScrLock);
 						IO_Scr++;
+						if(curNode != NULL){
+							enqueue(curNode, &IO_ScrQueue);
+							curNode = NULL;
+						}
 						pthread_mutex_unlock(&IO_ScrLock);
-					} else {
-						pthread_mutex_lock(&IO_ScrLock);
-						printf("IO_Scr Consumer! IO_Key value: %d\n", IO_Scr);
-						pthread_mutex_unlock(&IO_ScrLock);
+						break;
 					}
 					Msg &= 0xFC;
 				} 
@@ -68,17 +75,20 @@ void *mainThread(){
 					if(curNode->id % 2 == 0){
 						pthread_mutex_lock(&IO_MdmLock);
 						IO_Mdm++;
+						if(curNode != NULL){
+							enqueue(curNode, &IO_MdmQueue);
+							curNode = NULL;
+						}
 						pthread_mutex_unlock(&IO_MdmLock);
-					} else {
-						pthread_mutex_lock(&IO_MdmLock);
-						printf("IO_Mdm Consumer! IO_Key value: %d\n", IO_Mdm);
-						pthread_mutex_unlock(&IO_MdmLock);
+						break;
 					}
 					Msg &= 0xFB;
 				} 
 				if((Msg & 0x01) == 0x01){
 					//printf("TIMER Interrupt\n");
-					enqueue(curNode, &ReadyQueue);
+					if(curNode != NULL){
+						enqueue(curNode, &ReadyQueue);
+					}
 					Msg &= 0xFE;
 					break;
 				}
@@ -89,6 +99,7 @@ void *mainThread(){
 		printf("*****Final Results:*****\nIO_Key Value:\t%d\nIO_Scr Value:\t%d\nIO_MdM Value:\t%d\n", IO_Key, IO_Scr, IO_Mdm);
 		printf("--------------------\n");
 		printf("Total Processes Run: %d\n", Proc_ID);
+		printf("Total Cycles Run: %d\n", totalCycles);
 		printf("Deadlock Occured %d times!\n", Deadlock);
 		printf("\n");
 		exit(1);
@@ -112,6 +123,12 @@ void *IO_KeyThread(){
 		pthread_mutex_lock(&MsgStatusLock);
 		MsgStatus |= 0x02;
 		pthread_mutex_unlock(&MsgStatusLock);
+		pthread_mutex_lock(&IO_KeyLock);
+		printf("IO_Key Consumer! IO_Key value: %d\n", IO_Key);
+		if(IO_KeyQueue.size > 0){
+			enqueue(dequeue(&IO_KeyQueue), &ReadyQueue);
+		}
+		pthread_mutex_unlock(&IO_KeyLock);
 		usleep(r);
 	}
 }
@@ -122,6 +139,12 @@ void *IO_ScrThread(){
 		pthread_mutex_lock(&MsgStatusLock);
 		MsgStatus |= 0x04;
 		pthread_mutex_unlock(&MsgStatusLock);
+		pthread_mutex_lock(&IO_ScrLock);
+		printf("IO_Scr Consumer! IO_Scr value: %d\n", IO_Scr);
+		if(IO_ScrQueue.size > 0){
+			enqueue(dequeue(&IO_ScrQueue), &ReadyQueue);
+		}
+		pthread_mutex_unlock(&IO_ScrLock);
 		usleep(r);
 	}
 }
@@ -132,13 +155,18 @@ void *IO_MdmThread(){
 		pthread_mutex_lock(&MsgStatusLock);
 		MsgStatus |= 0x08;
 		pthread_mutex_unlock(&MsgStatusLock);
+		pthread_mutex_lock(&IO_MdmLock);
+		printf("IO_Mdm Consumer! IO_Mdm value: %d\n", IO_Mdm);
+		if(IO_MdmQueue.size > 0){
+			enqueue(dequeue(&IO_MdmQueue), &ReadyQueue);
+		}
+		pthread_mutex_unlock(&IO_MdmLock);
 		usleep(r);
 	}
 }
 
 void *DeadlockCheck(){
 	while(1){
-		Deadlock++;
 		usleep(10000);
 	}
 }
@@ -146,7 +174,7 @@ void *DeadlockCheck(){
 //Main
 int main(int argc, char * argv[]){
 
-	int i, r, r2, IO_Key, IO_Scr, IO_Mdm = 0;
+	int i, r, r2, IO_Key, IO_Scr, IO_Mdm, totalCycles = 0;
 	Proc_ID = 0;
 	srand(time(0));
 	//populate the ReadyQueue with initial values
@@ -154,11 +182,15 @@ int main(int argc, char * argv[]){
     r = ((rand() % 10) + 25);
     for (i = 0; i < r; i ++){
         //random number of quanta that the process will consume
-        r2 = ((rand() % 50) + 100);
+        r2 = ((rand() % 500) + 10);
         PCBNode* pcb = createPCBNode(Proc_ID, r2);
         enqueue(pcb, &ReadyQueue);
         Proc_ID++;
     }
+    
+    IO_KeyQueue = createQueue();
+    IO_ScrQueue = createQueue();
+    IO_MdmQueue = createQueue();
     
     MsgStatus = 0x00;
     

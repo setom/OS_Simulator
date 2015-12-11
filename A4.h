@@ -155,15 +155,20 @@ struct PCBNode* dequeue (Queue* queue){
 //compare the total quanta
 struct PCBNode* dequeueAndCheckTermination(Queue *queue){
 	PCBNode* node = dequeue(queue);
-	node->state = running;
-	node->count++;
-	if(node->count == node->quanta){
-		node->state = halted;
-		printf("Process %d TERMINATED, Process completed %d quanta of %d total quanta\n", node->id, node->count, node->quanta);
-		destroyPCBNode(node);
+	if(node != NULL){
+		node->state = running;
+		node->count++;
+		node->next = NULL;
+		if(node->count == node->quanta){
+			node->state = halted;
+			printf("Process %d TERMINATED, Process completed %d quanta of %d total quanta\n", node->id, node->count, node->quanta);
+			destroyPCBNode(node);
+			return(PCBNode*)0;
+		}
+		return node;
+	} else {
 		return(PCBNode*)0;
 	}
-	return node;
 }
 
 
