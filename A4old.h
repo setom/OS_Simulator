@@ -13,7 +13,7 @@
 //5 threads
 // Main, Timer, IO_Key, IO_Scr, IO_Mdm, Deadlock checker
 #define NUM_THREADS 6
-#define NUM_INTERRUPTS 100
+
 #define	NODE_ARRAY_SIZE 4
 
 typedef enum {newPCB, running, waiting, interrupted, halted} State;
