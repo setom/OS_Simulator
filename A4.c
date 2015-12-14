@@ -57,17 +57,17 @@ void *mainThread(){
 					pthread_mutex_lock(&StatusSemaphoreLock);
 					switch (r) {
 						case 0:
-							printf("Node %d Interrupted by IO_KEY at %d\n", curNode->id, curNode->count);
+							//printf("Node %d Interrupted by IO_KEY at %d\n", curNode->id, curNode->count);
 							StatusSemaphore |= 0x01;
 							enqueue(curNode, &IO_KeyQueue);
 							break;
 						case 1: 
-							printf("Node %d Interrupted by IO_SCR at %d\n", curNode->id, curNode->count);
+							//printf("Node %d Interrupted by IO_SCR at %d\n", curNode->id, curNode->count);
 							StatusSemaphore|= 0x02;
 							enqueue(curNode, &IO_ScrQueue); 
 							break;
 						case 2: 
-							printf("Node %d Interrupted by IO_MDM at %d\n", curNode->id, curNode->count);
+							//printf("Node %d Interrupted by IO_MDM at %d\n", curNode->id, curNode->count);
 							StatusSemaphore |= 0x04;
 							enqueue(curNode, &IO_MdmQueue);
 							break;
@@ -89,17 +89,17 @@ void *mainThread(){
 				pthread_mutex_unlock(&StatusSemaphoreLock);
 				//decode the MessageStatus word and determine what the interrupt was
 				if ((Msg & 0x10) == 0x10){
-					printf("IO_KEY Request Completed\n");
+					//printf("IO_KEY Request Completed\n");
 					enqueue(dequeue(&IO_KeyQueue), &ReadyQueue);
 					Msg &= 0xEF;
 				} 
 				if ((Msg & 0x20) == 0x20){
-					printf("IO_SCR Request Completed\n");
+					//printf("IO_SCR Request Completed\n");
 					enqueue(dequeue(&IO_ScrQueue), &ReadyQueue);
 					Msg &= 0xDF;
 				} 	
 				if((Msg & 0x40) == 0x40){
-					printf("IO_MDM Request Completed\n");
+					//printf("IO_MDM Request Completed\n");
 					enqueue(dequeue(&IO_MdmQueue), &ReadyQueue);
 					Msg &= 0xBF;
 				} 
@@ -156,7 +156,7 @@ void *IO_KeyThread(){
 			pthread_mutex_lock(&IO_2Lock);
 			IO_1++;
 			IO_2++;
-			printf("IO_KEY RESOURCE SHARING: %d + %d = %d\n", IO_1, IO_2, IO_1+IO_2);
+			//printf("IO_KEY RESOURCE SHARING: %d + %d = %d\n", IO_1, IO_2, IO_1+IO_2);
 			pthread_mutex_unlock(&IO_2Lock);
 			pthread_mutex_unlock(&IO_1Lock);
 			pthread_mutex_lock(&StatusSemaphoreLock);
@@ -181,7 +181,7 @@ void *IO_ScrThread(){
 			pthread_mutex_lock(&IO_3Lock);
 			IO_2++;
 			IO_3++;
-			printf("IO_SCR RESOURCE SHARING: %d + %d = %d\n", IO_2, IO_3, IO_2+IO_3);
+			//printf("IO_SCR RESOURCE SHARING: %d + %d = %d\n", IO_2, IO_3, IO_2+IO_3);
 			pthread_mutex_unlock(&IO_3Lock);
 			pthread_mutex_unlock(&IO_2Lock);
 			pthread_mutex_lock(&StatusSemaphoreLock);
@@ -206,7 +206,7 @@ void *IO_MdmThread(){
 			pthread_mutex_lock(&IO_1Lock);
 			IO_1++;
 			IO_3++;
-			printf("IO_MDM RESOURCE SHARING: %d + %d = %d\n", IO_1, IO_3, IO_1+IO_3);
+			//printf("IO_MDM RESOURCE SHARING: %d + %d = %d\n", IO_1, IO_3, IO_1+IO_3);
 			pthread_mutex_unlock(&IO_1Lock);
 			pthread_mutex_unlock(&IO_3Lock);
 			pthread_mutex_lock(&StatusSemaphoreLock);
@@ -216,9 +216,30 @@ void *IO_MdmThread(){
 	}
 }
 
+//on a consistent schedule, run the deadlock checker and determine if there is any 
+//deadlock on the global variables
 void *DeadlockCheck(){
 	while(1){
-		usleep(10000);
+		usleep(1000000);
+		if (pthread_mutex_trylock(&IO_1Lock) == 0){
+			if (pthread_mutex_trylock(&IO_2Lock) == 0){
+				if (pthread_mutex_trylock(&IO_3Lock) == 0){
+					//printf("ALL MUTEX LOCKS AVAILABLE\n");
+					pthread_mutex_unlock(&IO_3Lock);
+				} else {
+					//printf("Mutex 3 was NOT available\n");
+					Deadlock++;
+				}
+				pthread_mutex_unlock(&IO_2Lock);
+			} else {
+				//printf("Mutex 2 was NOT available\n");
+				Deadlock++;
+			}
+			pthread_mutex_unlock(&IO_1Lock);
+		} else {
+			//printf("Mutex 1 was NOT available\n");
+			Deadlock++;
+		}
 	}
 }
 
@@ -268,12 +289,14 @@ int main(int argc, char * argv[]){
 	pthread_create(&thread[2], NULL, IO_KeyThread, NULL);
 	pthread_create(&thread[3], NULL, IO_ScrThread, NULL);
 	pthread_create(&thread[4], NULL, IO_MdmThread, NULL);
+	pthread_create(&thread[5], NULL, DeadlockCheck, NULL);
 	
 	pthread_join(thread[0], NULL);
 	pthread_join(thread[1], NULL);
 	pthread_join(thread[2], NULL);
 	pthread_join(thread[3], NULL);
 	pthread_join(thread[4], NULL);
+	pthread_join(thread[5], NULL);
 	
 	pthread_exit(NULL);
 	

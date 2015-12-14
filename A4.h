@@ -166,7 +166,7 @@ struct PCBNode* dequeueAndCheckTermination(Queue *queue){
 		node->next = NULL;
 		if(node->count == node->quanta){
 			node->state = halted;
-			printf("Process %d TERMINATED, Process completed %d quanta of %d total quanta\n", node->id, node->count, node->quanta);
+			//printf("Process %d TERMINATED, Process completed %d quanta of %d total quanta\n", node->id, node->count, node->quanta);
 			destroyPCBNode(node);
 			return(PCBNode*)0;
 		}
