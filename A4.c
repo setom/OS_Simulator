@@ -40,6 +40,8 @@ Notes:
  	IO_MDM 	0100 0000 | 0x40
 
 	Note that this format allows us to mask only one bit at a time. THEREFORE YOU CAN HAVE MULTIPLE FLAGS SET AT ONCE
+	Ex: 0x63 (0110 0011) indicates tht tehre are SCR and MDM inturrupts ready to 
+		return to the RQ. AND that SCR and KEY are ready to go to IO Waiting
 	
  - There is a deadlock detector that tests all Global int mutexes at a specified interval
  
