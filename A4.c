@@ -15,9 +15,9 @@ int StatusSemaphore;
 int InterruptArray[NUM_INTERRUPTS];
 
 //global variables that will be incremented by IO functions
-int IO_Key;
-int IO_Scr;
-int IO_Mdm;
+int IO_1;
+int IO_2;
+int IO_3;
 int Proc_ID;
 int Deadlock;
 int totalCycles;
@@ -27,9 +27,9 @@ pthread_mutex_t StatusSemaphoreLock;
 //the pthread lock for IOSemaphore
 pthread_mutex_t IOSemaphoreLock;
 //mutex locks for IO integers
-pthread_mutex_t IO_KeyLock;
-pthread_mutex_t IO_ScrLock;
-pthread_mutex_t IO_MdmLock;
+pthread_mutex_t IO_1Lock;
+pthread_mutex_t IO_2Lock;
+pthread_mutex_t IO_3Lock;
 //mutex for ReadyQueue
 pthread_mutex_t ReadyQLock;
 
@@ -116,7 +116,7 @@ void *mainThread(){
 			}
 		}
 		printf("\n");
-		printf("*****Final Results:*****\nIO_Key Value:\t%d\nIO_Scr Value:\t%d\nIO_MdM Value:\t%d\n", IO_Key, IO_Scr, IO_Mdm);
+		printf("*****Final Results:*****\nIO_Key Value:\t%d\nIO_Scr Value:\t%d\nIO_MdM Value:\t%d\n", IO_1, IO_2, IO_3);
 		printf("--------------------\n");
 		printf("Total Processes Run: %d\n", Proc_ID);
 		printf("Total Cycles Run: %d\n", totalCycles);
@@ -151,6 +151,14 @@ void *IO_KeyThread(){
 		if(((Msg & 0x01) == 0x01) && IO_KeyQueue.size > 0){
 			int r = ((rand() % 100000) + 500000);
 			usleep(r);
+			//Share mutual Resources
+			pthread_mutex_lock(&IO_1Lock);
+			pthread_mutex_lock(&IO_2Lock);
+			IO_1++;
+			IO_2++;
+			printf("IO_KEY RESOURCE SHARING: %d + %d = %d\n", IO_1, IO_2, IO_1+IO_2);
+			pthread_mutex_unlock(&IO_2Lock);
+			pthread_mutex_unlock(&IO_1Lock);
 			pthread_mutex_lock(&StatusSemaphoreLock);
 			StatusSemaphore |= 0x10;
 			pthread_mutex_unlock(&StatusSemaphoreLock);
@@ -168,6 +176,14 @@ void *IO_ScrThread(){
 		if(((Msg & 0x02) == 0x02) && IO_ScrQueue.size>0){
 			int r = ((rand() % 100000) + 500000);
 			usleep(r);
+			//Share mutual Resources
+			pthread_mutex_lock(&IO_2Lock);
+			pthread_mutex_lock(&IO_3Lock);
+			IO_2++;
+			IO_3++;
+			printf("IO_SCR RESOURCE SHARING: %d + %d = %d\n", IO_2, IO_3, IO_2+IO_3);
+			pthread_mutex_unlock(&IO_3Lock);
+			pthread_mutex_unlock(&IO_2Lock);
 			pthread_mutex_lock(&StatusSemaphoreLock);
 			StatusSemaphore |= 0x20;
 			pthread_mutex_unlock(&StatusSemaphoreLock);
@@ -185,6 +201,14 @@ void *IO_MdmThread(){
 		if(((Msg & 0x04) == 0x04) && IO_MdmQueue.size > 0){
 			int r = ((rand() % 100000) + 500000);
 			usleep(r);
+			//Share mutual Resources
+			pthread_mutex_lock(&IO_3Lock);
+			pthread_mutex_lock(&IO_1Lock);
+			IO_1++;
+			IO_3++;
+			printf("IO_MDM RESOURCE SHARING: %d + %d = %d\n", IO_1, IO_3, IO_1+IO_3);
+			pthread_mutex_unlock(&IO_1Lock);
+			pthread_mutex_unlock(&IO_3Lock);
 			pthread_mutex_lock(&StatusSemaphoreLock);
 			StatusSemaphore |= 0x40;
 			pthread_mutex_unlock(&StatusSemaphoreLock);
@@ -201,7 +225,7 @@ void *DeadlockCheck(){
 //Main
 int main(int argc, char * argv[]){
 
-	int i, r, r2, IO_Key, IO_Scr, IO_Mdm, totalCycles = 0;
+	int i, r, r2, IO_1, IO_2, IO_3, totalCycles = 0;
 	Proc_ID = 0;
 	srand(time(0));
 	//populate the ReadyQueue with initial values
@@ -231,9 +255,9 @@ int main(int argc, char * argv[]){
     //initialize the mutex
 	pthread_mutex_init(&StatusSemaphoreLock, NULL);
 	pthread_mutex_init(&IOSemaphoreLock, NULL);
-	pthread_mutex_init(&IO_KeyLock, NULL);
-	pthread_mutex_init(&IO_ScrLock, NULL);
-	pthread_mutex_init(&IO_MdmLock, NULL);
+	pthread_mutex_init(&IO_1Lock, NULL);
+	pthread_mutex_init(&IO_2Lock, NULL);
+	pthread_mutex_init(&IO_3Lock, NULL);
 	pthread_mutex_init(&ReadyQLock, NULL);
 
 	//create NUM_THREADS number of threads
