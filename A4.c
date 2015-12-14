@@ -5,7 +5,7 @@
 
 #include "A4.h"
 
-//global variables for Queue
+//Queues
 Queue ReadyQueue;
 Queue IO_KeyQueue;
 Queue IO_ScrQueue;
@@ -26,7 +26,6 @@ pthread_mutex_t MsgStatusLock;
 pthread_mutex_t IO_KeyLock;
 pthread_mutex_t IO_ScrLock;
 pthread_mutex_t IO_MdmLock;
-
 //mutex for ReadyQueue
 pthread_mutex_t ReadyQLock;
 
@@ -34,7 +33,6 @@ pthread_mutex_t ReadyQLock;
 void *mainThread(){
 	while(1){
 		while(ReadyQueue.size > 0 || IO_KeyQueue.size > 0 || IO_ScrQueue.size > 0 || IO_MdmQueue.size > 0){
-			totalCycles++;
 			pthread_mutex_lock(&ReadyQLock);
 			PCBNode* curNode = dequeueAndCheckTermination(&ReadyQueue);
 			pthread_mutex_unlock(&ReadyQLock);
@@ -42,6 +40,7 @@ void *mainThread(){
 			if (curNode == NULL){
 				continue;
 			}
+			totalCycles++;
 			//printf("Dequeued Node %d, Quanta %d of %d\n", curNode->id, curNode->count, curNode->quanta);
 			while(!MsgStatus){
 				//stay in a holding loop until the MsgStatus gets set to something
@@ -134,7 +133,6 @@ void *IO_KeyThread(){
 		MsgStatus |= 0x02;
 		pthread_mutex_unlock(&MsgStatusLock);
 		pthread_mutex_lock(&IO_KeyLock);
-		//usleep(1000);
 		//printf("IO_Key Consumer! IO_Key value: %d\n", IO_Key);
 		if(IO_KeyQueue.size > 0){
 			pthread_mutex_lock(&ReadyQLock);
@@ -153,7 +151,6 @@ void *IO_ScrThread(){
 		MsgStatus |= 0x04;
 		pthread_mutex_unlock(&MsgStatusLock);
 		pthread_mutex_lock(&IO_ScrLock);
-		//usleep(1000);
 		//printf("IO_Scr Consumer! IO_Scr value: %d\n", IO_Scr);
 		if(IO_ScrQueue.size > 0){
 			pthread_mutex_lock(&ReadyQLock);
@@ -172,7 +169,6 @@ void *IO_MdmThread(){
 		MsgStatus |= 0x08;
 		pthread_mutex_unlock(&MsgStatusLock);
 		pthread_mutex_lock(&IO_MdmLock);
-		//usleep(1000);
 		//printf("IO_Mdm Consumer! IO_Mdm value: %d\n", IO_Mdm);
 		if(IO_MdmQueue.size > 0){
 			pthread_mutex_lock(&ReadyQLock);
@@ -198,10 +194,10 @@ int main(int argc, char * argv[]){
 	srand(time(0));
 	//populate the ReadyQueue with initial values
 	ReadyQueue = createQueue();
-    r = ((rand() % 10) + 25);
+    r = ((rand() % 10) + 35);
     for (i = 0; i < r; i ++){
         //random number of quanta that the process will consume
-        r2 = ((rand() % 500) + 10);
+        r2 = ((rand() % 750) + 10);
         PCBNode* pcb = createPCBNode(Proc_ID, r2);
         enqueue(pcb, &ReadyQueue);
         Proc_ID++;

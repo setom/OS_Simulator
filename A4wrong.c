@@ -3,14 +3,16 @@
 //Multi-threaded Operating Systems Simulator
 //Matt Seto & Arsh Singh
 
-#include "A4.h"
+#include "A4wrong.h"
 
-//global variables for Queue
+//Queues
 Queue ReadyQueue;
 Queue IO_KeyQueue;
 Queue IO_ScrQueue;
 Queue IO_MdmQueue;
 int MsgStatus;
+
+int InterruptArray[NUM_INTERRUPTS];
 
 //global variables that will be incremented by IO functions
 int IO_Key;
@@ -26,15 +28,13 @@ pthread_mutex_t MsgStatusLock;
 pthread_mutex_t IO_KeyLock;
 pthread_mutex_t IO_ScrLock;
 pthread_mutex_t IO_MdmLock;
-
 //mutex for ReadyQueue
 pthread_mutex_t ReadyQLock;
 
 //Thread Loops
 void *mainThread(){
 	while(1){
-		while(ReadyQueue.size > 0 || IO_KeyQueue.size > 0 || IO_ScrQueue.size > 0 || IO_MdmQueue.size > 0){
-			totalCycles++;
+		while(ReadyQueue.size > 0){
 			pthread_mutex_lock(&ReadyQLock);
 			PCBNode* curNode = dequeueAndCheckTermination(&ReadyQueue);
 			pthread_mutex_unlock(&ReadyQLock);
@@ -42,10 +42,41 @@ void *mainThread(){
 			if (curNode == NULL){
 				continue;
 			}
-			//printf("Dequeued Node %d, Quanta %d of %d\n", curNode->id, curNode->count, curNode->quanta);
-			while(!MsgStatus){
-				//stay in a holding loop until the MsgStatus gets set to something
+			totalCycles++;
+			int interruptSentinel = 0;
+			//check the current PCB to see if its count will fire an interrupt
+			for(int i = 0; i < NUM_INTERRUPTS; i++){
+				while(curNode->count < InterruptArray[i]){
+					if(curNode->count == InterruptArray[i]){
+						//reset the array value so it never gets used again
+						InterruptArray[i] = 0;
+						interruptSentinel = 1;
+						//decide which thread interrupts it
+						int r = (rand() % 3);
+						switch (r) {
+							case 0:
+								pthread_create(&thread[2], NULL, IO_KeyThread, NULL);
+								enqueue(curNode, &IO_KeyQueue);
+								break;
+							case 1: 
+								pthread_create(&thread[3], NULL, IO_ScrThread, NULL);
+								enqueue(curNode, &IO_ScrQueue); 
+								break;
+							case 2: 
+								pthread_create(&thread[4], NULL, IO_MdmThread, NULL);
+								enqueue(curNode, &IO_ScrQueue);
+								break;
+						}
+						break;
+					}
+				}
 			}	
+			//if it didn't get interrupted, then it must still be running, let it go until the timer fires
+			if(interruptSentinel != 1){
+				while(!MsgStatus){
+					//stay in a holding loop until the MsgStatus gets set to something
+				}	
+			}
 			while(1){
 				pthread_mutex_lock(&MsgStatusLock);
 				int Msg = MsgStatus;
@@ -134,7 +165,6 @@ void *IO_KeyThread(){
 		MsgStatus |= 0x02;
 		pthread_mutex_unlock(&MsgStatusLock);
 		pthread_mutex_lock(&IO_KeyLock);
-		//usleep(1000);
 		//printf("IO_Key Consumer! IO_Key value: %d\n", IO_Key);
 		if(IO_KeyQueue.size > 0){
 			pthread_mutex_lock(&ReadyQLock);
@@ -153,7 +183,6 @@ void *IO_ScrThread(){
 		MsgStatus |= 0x04;
 		pthread_mutex_unlock(&MsgStatusLock);
 		pthread_mutex_lock(&IO_ScrLock);
-		//usleep(1000);
 		//printf("IO_Scr Consumer! IO_Scr value: %d\n", IO_Scr);
 		if(IO_ScrQueue.size > 0){
 			pthread_mutex_lock(&ReadyQLock);
@@ -172,7 +201,6 @@ void *IO_MdmThread(){
 		MsgStatus |= 0x08;
 		pthread_mutex_unlock(&MsgStatusLock);
 		pthread_mutex_lock(&IO_MdmLock);
-		//usleep(1000);
 		//printf("IO_Mdm Consumer! IO_Mdm value: %d\n", IO_Mdm);
 		if(IO_MdmQueue.size > 0){
 			pthread_mutex_lock(&ReadyQLock);
@@ -198,15 +226,25 @@ int main(int argc, char * argv[]){
 	srand(time(0));
 	//populate the ReadyQueue with initial values
 	ReadyQueue = createQueue();
-    r = ((rand() % 10) + 25);
+    r = ((rand() % 10) + 35);
     for (i = 0; i < r; i ++){
         //random number of quanta that the process will consume
-        r2 = ((rand() % 500) + 10);
+        r2 = ((rand() % 750) + 10);
         PCBNode* pcb = createPCBNode(Proc_ID, r2);
         enqueue(pcb, &ReadyQueue);
         Proc_ID++;
     }
     
+    //populate the InterruptArray with values
+    for(i=0; i < NUM_INTERRUPTS; i++){
+    	r = ((rand() % 750) + 10);
+    	InterruptArray[i] = r;
+    }
+    qsort(InterruptArray, NUM_INTERRUPTS, sizeof(int), compare);
+    
+    for(i=0; i< NUM_INTERRUPTS; i++){
+    	printf("I = %d\n", InterruptArray[i]);
+    }
     IO_KeyQueue = createQueue();
     IO_ScrQueue = createQueue();
     IO_MdmQueue = createQueue();
@@ -225,17 +263,9 @@ int main(int argc, char * argv[]){
 	
 	pthread_create(&thread[0], NULL, mainThread, NULL);
 	pthread_create(&thread[1], NULL, timerThread, NULL);
-	pthread_create(&thread[2], NULL, IO_KeyThread, NULL);
-	pthread_create(&thread[3], NULL, IO_ScrThread, NULL);
-	pthread_create(&thread[4], NULL, IO_MdmThread, NULL);
-	pthread_create(&thread[5], NULL, DeadlockCheck, NULL);
 	
 	pthread_join(thread[0], NULL);
 	pthread_join(thread[1], NULL);
-	pthread_join(thread[2], NULL);
-	pthread_join(thread[3], NULL);
-	pthread_join(thread[4], NULL);
-	pthread_join(thread[5], NULL);
 	
 	pthread_exit(NULL);
 	
